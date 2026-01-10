@@ -1,0 +1,15 @@
+[project]
+name = "data-processing-util"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Mao Saeki", email = "saeki@equ.ai" }]
+requires-python = ">=3.11"
+dependencies = ["tqdm>=4.67.1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=9.0.2"]
