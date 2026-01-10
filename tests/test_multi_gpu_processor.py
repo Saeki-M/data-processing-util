@@ -6,22 +6,13 @@ from data_processing_util.multi_gpu_processor import execute_data_processing
 
 # Define Data class at module level so it can be pickled for multiprocessing
 class Data:
-    def __init__(self, id):
+    def __init__(self, id: int):
         self.id = id
 
 
-# Define processing function at module level so it can be pickled for multiprocessing
-def process_func(data):
-    return data.id
-
-
-def dataset_generator(data_count):
+def dataset_generator(data_count: int):
     for i in range(data_count):
         yield Data(i)
-
-
-def init_worker(worker_id: int):
-    pass
 
 
 # Module-level tracked functions for testing (use environment variables for file paths)
@@ -32,7 +23,7 @@ def tracked_init_worker(worker_id: int):
             f.write(f"{worker_id}\n")
 
 
-def tracked_process_func(data):
+def tracked_process_func(data: Data):
     process_log_path = os.environ.get("TEST_PROCESS_LOG_PATH")
     if process_log_path is not None:
         with open(process_log_path, "a") as f:
@@ -40,7 +31,7 @@ def tracked_process_func(data):
     return data.id
 
 
-def test_execute_data_processing(data_count=10, num_workers=2):
+def test_execute_data_processing(data_count: int = 10, num_workers: int = 2):
     with (
         tempfile.NamedTemporaryFile(mode="w", suffix=".log") as init_log,
         tempfile.NamedTemporaryFile(mode="w", suffix=".log") as process_log,
@@ -69,13 +60,13 @@ def test_execute_data_processing(data_count=10, num_workers=2):
         assert processed_ids == set(range(data_count))
 
 
-def faulty_process_func(data):
+def faulty_process_func(data: Data):
     if data.id == 3:
         raise ValueError("Dummy error for testing")
     return data.id
 
 
-def test_execute_data_processing_error_handling(data_count=5):
+def test_execute_data_processing_error_handling(data_count: int = 5):
     dataset = dataset_generator(data_count)
 
     # Create a temporary file for error logging

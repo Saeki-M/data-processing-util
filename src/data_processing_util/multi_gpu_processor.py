@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
+from enum import Enum
 from typing import Any, Callable, Iterator
 
 from tqdm import tqdm
@@ -12,9 +13,14 @@ def _init_worker(worker_id: int):
     pass
 
 
+class JobType(Enum):
+    INIT = 1
+    PROCESS = 2
+
+
 def execute_data_processing(
-    dataset: Iterator,
-    process_func: Callable,
+    dataset: Iterator[Any],
+    process_func: Callable[[Any], Any],
     num_workers: int,
     worker_init_func: Callable[[int], Any] = _init_worker,
     data_count: int | None = None,
@@ -25,18 +31,17 @@ def execute_data_processing(
         tqdm(total=data_count, desc="Processing data") as pbar,
     ):
         # Submit initialization and initial data jobs
-        futures: dict[Future, Any] = {}
+        futures: dict[Future[Any], JobType] = {}
         for worker_id in range(num_workers):
             # Submit worker initialization (marked with None)
             init_future = executor.submit(worker_init_func, worker_id)
-            futures[init_future] = None
-
+            futures[init_future] = JobType.INIT
         # Process results as they complete and submit new jobs
         while futures:
             # Wait for at least one future to complete
             complete_job = as_completed(futures).__next__()
 
-            if futures[complete_job] is None:
+            if futures[complete_job] == JobType.INIT:
                 # init job must not fail
                 complete_job.result()
             else:
@@ -56,7 +61,7 @@ def execute_data_processing(
             try:
                 data = next(dataset)
                 new_future = executor.submit(process_func, data)
-                futures[new_future] = data.id
+                futures[new_future] = JobType.PROCESS
             except StopIteration:
                 # No more data to process
                 pass
