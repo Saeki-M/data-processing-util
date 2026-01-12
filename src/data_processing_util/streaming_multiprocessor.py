@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def execute_data_processing(
     dataset: Iterator[Any],
-    process_func: Callable[[tuple[int, Any]], Any],
+    process_func: Callable[[int, Any], Any],
     num_workers: int,
     data_count: int | None = None,
     error_path: str | None = None,
@@ -27,7 +27,7 @@ def execute_data_processing(
         for _ in range(num_workers):
             try:
                 data = next(dataset)
-                future = executor.submit(process_func, (next_worker_id, data))
+                future = executor.submit(process_func, next_worker_id, data)
                 futures[future] = next_worker_id
                 next_worker_id = next_worker_id % num_workers + 1
             except StopIteration:
@@ -54,7 +54,7 @@ def execute_data_processing(
 
             try:
                 data = next(dataset)
-                new_future = executor.submit(process_func, (worker_id, data))
+                new_future = executor.submit(process_func, worker_id, data)
                 futures[new_future] = worker_id
             except StopIteration:
                 # No more data to process

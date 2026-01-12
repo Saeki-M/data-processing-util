@@ -16,9 +16,7 @@ def dataset_generator(data_count: int):
         yield Data(i)
 
 
-def tracked_process_func(worker_data: tuple[int, Data], worker_log_path: str):
-    worker_id, data = worker_data
-
+def tracked_process_func(worker_id: int, data: Data, worker_log_path: str):
     # Log worker_id and data for testing
     with open(worker_log_path, "a") as f:
         f.write(f"{worker_id},{data.id}\n")
@@ -47,8 +45,7 @@ def test_execute_data_processing(data_count: int = 10, num_workers: int = 2):
     assert processed_ids == set(range(data_count)), "unprocessed data IDs"
 
 
-def faulty_process_func(worker_data: tuple[int, Data]):
-    _worker_id, data = worker_data
+def faulty_process_func(worker_id: int, data: Data):
     if data.id == 3:
         raise ValueError("Dummy error for testing")
     return data.id

@@ -1,6 +1,6 @@
 [project]
 name = "data-processing-util"
-version = "0.2.0"
+version = "0.2.1"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Mao Saeki", email = "saeki@equ.ai" }]
