@@ -3,7 +3,7 @@ import tempfile
 from dataclasses import dataclass
 from functools import partial
 
-from data_processing_util.multi_gpu_processor import execute_data_processing
+from data_processing_util.streaming_multiprocessor import execute_data_processing
 
 
 @dataclass
