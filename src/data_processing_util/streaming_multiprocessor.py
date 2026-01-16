@@ -1,19 +1,42 @@
 import logging
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, TypeVar
 
 from tqdm import tqdm
+
+T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
 
+def split_iterator(dataset: Iterator[T], idx: int, total: int) -> Iterator[T]:
+    for i, data in enumerate(dataset):
+        if i % total == idx:
+            yield data
+
+
 def execute_data_processing(
-    dataset: Iterator[Any],
-    process_func: Callable[[int, Any], Any],
+    dataset: Iterator[T] | list[T],
+    process_func: Callable[[int, T], Any],
     num_workers: int,
-    data_count: int | None = None,
+    split: str | None = None,
     error_path: str | None = None,
 ):
+    data_count = None
+    if isinstance(dataset, list):
+        data_count = len(dataset)
+        dataset = iter(dataset)
+
+    if split is not None:
+        idx, total = map(int, split.split("/"))
+        assert 1 <= idx <= total, f"Invalid split format: {split}"
+        idx -= 1  # Convert to 0-based index
+
+        if data_count is not None:
+            data_count = data_count // total + (1 if idx < data_count % total else 0)
+
+        dataset = split_iterator(dataset, idx, total)
+
     with (
         ProcessPoolExecutor(max_workers=num_workers) as executor,
         tqdm(total=data_count, desc="Processing data") as pbar,
