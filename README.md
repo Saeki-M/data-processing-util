@@ -31,7 +31,6 @@ execute_data_processing(
     dataset=dataset_generator(),
     process_func=process_func,
     num_workers=4,
-    data_count=100
 )
 ```
 
