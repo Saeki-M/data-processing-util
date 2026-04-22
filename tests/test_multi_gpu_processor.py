@@ -33,10 +33,14 @@ def test_execute_data_processing(
 ):
     dataset = dataset_generator(data_count)
     with tempfile.NamedTemporaryFile(mode="w") as worker_log:
-        execute_data_processing(
-            dataset=dataset,
-            process_func=partial(tracked_process_func, worker_log_path=worker_log.name),
-            num_workers=num_workers,
+        list(
+            execute_data_processing(
+                dataset=dataset,
+                process_func=partial(
+                    tracked_process_func, worker_log_path=worker_log.name
+                ),
+                num_workers=num_workers,
+            )
         )
 
         # Read worker_id and data_id pairs
@@ -59,11 +63,13 @@ def faulty_process_func(worker_id: int, data: Data):
 def test_execute_data_processing_error_handling(data_count: int = 5):
     dataset = dataset_generator(data_count)
     with tempfile.NamedTemporaryFile(mode="w") as f:
-        execute_data_processing(
-            dataset=dataset,
-            process_func=faulty_process_func,
-            num_workers=2,
-            error_path=f.name,
+        list(
+            execute_data_processing(
+                dataset=dataset,
+                process_func=faulty_process_func,
+                num_workers=2,
+                error_path=f.name,
+            )
         )
 
         # Verify that error log was written
@@ -82,11 +88,15 @@ def test_execute_data_processing_split(
 ):
     dataset = dataset_generator(data_count)
     with tempfile.NamedTemporaryFile(mode="w") as worker_log:
-        execute_data_processing(
-            dataset=dataset,
-            process_func=partial(tracked_process_func, worker_log_path=worker_log.name),
-            num_workers=num_workers,
-            split=split,
+        list(
+            execute_data_processing(
+                dataset=dataset,
+                process_func=partial(
+                    tracked_process_func, worker_log_path=worker_log.name
+                ),
+                num_workers=num_workers,
+                split=split,
+            )
         )
 
         # Read worker_id and data_id pairs

@@ -1,6 +1,6 @@
 import logging
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
-from typing import Any, Callable, Iterator, TypeVar
+from typing import Callable, Iterator, TypeVar
 
 from tqdm import tqdm
 
@@ -15,14 +15,18 @@ def split_iterator(dataset: Iterator[T], idx: int, total: int) -> Iterator[T]:
             yield data
 
 
+T = TypeVar("T")
+R = TypeVar("R")
+
+
 def execute_data_processing(
     dataset: Iterator[T] | list[T],
-    process_func: Callable[[int, T], Any],
+    process_func: Callable[[int, T], R],
     num_workers: int,
     split: str | None = None,
     error_path: str | None = None,
-):
-    data_count = None
+) -> Iterator[R]:
+    data_count: int | None = None
     if isinstance(dataset, list):
         data_count = len(dataset)
         dataset = iter(dataset)
@@ -30,7 +34,7 @@ def execute_data_processing(
     if split is not None:
         idx, total = map(int, split.split("/"))
         assert 1 <= idx <= total, f"Invalid split format: {split}"
-        idx -= 1  # Convert to 0-based index
+        idx -= 1  # 0-based
 
         if data_count is not None:
             data_count = data_count // total + (1 if idx < data_count % total else 0)
@@ -39,46 +43,43 @@ def execute_data_processing(
 
     with (
         ProcessPoolExecutor(max_workers=num_workers) as executor,
-        tqdm(total=data_count, desc="Processing data") as pbar,
+        tqdm(total=data_count, desc="Processing data") as progress,
     ):
-        # Track which worker is handling which future
-        futures: dict[Future[Any], int] = {}
-        # Track next worker_id to assign (round-robin, starting from 1)
+        futures: dict[Future[R], int] = {}
         next_worker_id = 1
 
-        # Submit initial jobs for each worker
-        for _ in range(num_workers):
+        def submit_one(worker_id: int) -> bool:
             try:
                 data = next(dataset)
-                future = executor.submit(process_func, next_worker_id, data)
-                futures[future] = next_worker_id
-                next_worker_id = next_worker_id % num_workers + 1
             except StopIteration:
+                return False
+            fut: Future[R] = executor.submit(process_func, worker_id, data)
+            futures[fut] = worker_id
+            return True
+
+        # prime
+        for _ in range(num_workers):
+            if not submit_one(next_worker_id):
                 break
+            next_worker_id = next_worker_id % num_workers + 1
 
-        # Process results as they complete and submit new jobs
+        # stream
         while futures:
-            # Wait for at least one future to complete
-            complete_job = as_completed(futures).__next__()
-            worker_id = futures[complete_job]
+            completed: Future[R] = next(as_completed(futures))
+            worker_id = futures.pop(completed)
 
-            # Update progress
-            pbar.update()
+            progress.update(1)
 
             try:
-                complete_job.result()  # Raise exception if any
+                value: R = completed.result()
             except Exception as e:
-                logger.exception("Error in worker")
+                logger.exception("Error in worker %s", worker_id)
                 if error_path is not None:
                     with open(error_path, "a") as f:
-                        f.write(f"Error in worker: {e}\n")
+                        f.write(f"Error in worker {worker_id}: {e}\n")
+                # IMPORTANT: don't yield on failure
+            else:
+                yield value
 
-            del futures[complete_job]
-
-            try:
-                data = next(dataset)
-                new_future = executor.submit(process_func, worker_id, data)
-                futures[new_future] = worker_id
-            except StopIteration:
-                # No more data to process
-                pass
+            # refill this worker slot
+            submit_one(worker_id)
